@@ -1,74 +1,93 @@
-import React, { useState, useEffect } from 'react';
+import React, { useCallback, useState, useRef, useEffect } from 'react';
 import { AgGridReact } from 'ag-grid-react';
 import IconButton from '@mui/material/IconButton';
 import DeleteIcon from '@mui/icons-material/Delete';
+import FileDownloadIcon from '@mui/icons-material/FileDownload';
 import Snackbar from '@mui/material/Snackbar';
+import dayjs from 'dayjs';
 
 import 'ag-grid-community/dist/styles/ag-grid.css';
 import 'ag-grid-community/dist/styles/ag-theme-material.css';
 
-
 function TrainingsPage() {
+    const gridRef = useRef();
     const [trainings, setTrainings] = useState([]);
     const [open, setOpen] = useState(false);
-
-    const deleteUrl = `https://customerrest.herokuapp.com/api/trainings/16`
+    const [msg, setMsg] = useState('');
 
     useEffect(() => {
         fetchTrainings();
     }, []);
 
     const fetchTrainings = () => {
-        fetch("https://customerrest.herokuapp.com/api/trainings")
-        .then(response => response.json())
-        .then(data => setTrainings(data.content))
+        fetch("https://customerrest.herokuapp.com/gettrainings")
+            .then(response => response.json())
+            .then(data => setTrainings(data))
+            .catch(err => console.error(err))
     }
 
-    const deleteTraining = (link) => {
+    const deleteTraining = (id) => {
         if (window.confirm('Are you sure?')) {
-        fetch(deleteUrl, { method: 'DELETE' })
+        fetch("https://customerrest.herokuapp.com/api/trainings/" + id, {method: 'DELETE'})
             .then(response => {
-            if (response.ok) {
-                setOpen(true);
-                fetchTrainings();
-            }
-            else {
-                alert('Something went wrong');
-            }
+                if (response.ok) {
+                    setMsg("Training was deleted successfully");
+                    setOpen(true);
+                    fetchTrainings();
+                }
+                else {
+                    alert("Something went wrong!")
+                }
             })
         }
     }
 
+    const customerName = (params) => {
+        return params.data.customer.firstname + " " + params.data.customer.lastname;
+    };
+
     const columns = [
-        { field: 'date', sortable: true, filter: true },
-        { field: 'duration', sortable: true, filter: true },
-        { field: 'activity', sortable: true, filter: true },
-        { field: 'id', sortable: true, filter: true },
-        {
-        headerName: '',
-        width: 100,
-        field: '_links.self.href',
-        cellRenderer: params =>
-            <IconButton color="error" onClick={() => deleteTraining(params.value)}>
-            <DeleteIcon />
-            </IconButton>
-        }
-    ]
+            { field: 'activity', sortable: true, filter: true, width: 150 },
+            { field: 'duration', sortable: true, filter: true, width: 140 },
+            { field: 'date', sortable: true, filter: true, width: 160 , valueFormatter: params => dayjs(params.value).format("DD.MM.YYYY HH:mm") },
+            {
+                headerName: 'Customer',
+                valueGetter: customerName,
+                width: 160 ,
+            },
+            {
+                headerName: '',
+                width: 90,
+                field: 'links.0.href',
+                cellRenderer: params => 
+                <IconButton color="error" onClick={() => deleteTraining(params.data.id)}>
+                    <DeleteIcon />
+                </IconButton>
+            }
+        ]
+
+    const onExportClick = useCallback(() => {
+        gridRef.current.api.exportDataAsCsv();
+    }, []);
 
     return (
         <>
+        <IconButton id="Exportbutton2" onClick={() => onExportClick()}>
+            <FileDownloadIcon />Export
+        </IconButton>
         <div className="ag-theme-material" style={{ height: 600, width: '90%' }}>
             <AgGridReact
-            columnDefs={columns}
-            rowData={trainings}
-            pagination={true}
-            paginationPageSize={10}
-            suppressCellFocus={true}
+                ref={gridRef}
+                columnDefs={columns}
+                rowData={trainings}
+                pagination={true}
+                paginationPageSize={10}
+                suppressCellFocus={true}
             />
         </div>
         <Snackbar
             open={open}
-            message="Training deleted"
+            message={msg}
             autoHideDuration={3000}
             onClose={() => setOpen(false)}
         />

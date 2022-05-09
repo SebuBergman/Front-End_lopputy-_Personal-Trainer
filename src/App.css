@@ -50,3 +50,8 @@
   margin: auto;
   padding: 10px;
 }
+
+#PieChart {
+  width: 500px;
+  height: 500px;
+}
